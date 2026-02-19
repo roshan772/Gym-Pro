@@ -2,11 +2,15 @@ const Database = require("better-sqlite3");
 const path = require("path");
 const bcrypt = require("bcryptjs");
 const { format, addMonths, addYears, isAfter, parseISO } = require("date-fns");
+const deviceService = require("../device/deviceService");
 
 const { app } = require("electron");
 const DB_PATH = path.join(app.getPath("userData"), "gymproAdmin.db");
 
 const db = new Database(DB_PATH);
+
+const DEVICE_SYNC_DISABLED =
+  process.env.DISABLE_DEVICE_SYNC === "1" || process.env.NODE_ENV === "test";
 
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
@@ -128,6 +132,66 @@ function timeToMinutes(t) {
   return h * 60 + m;
 }
 
+function buildDeviceUserPayload(member) {
+  if (!member || !member.id) return null;
+  const beginTime = member.start_date
+    ? `${member.start_date}T00:00:00`
+    : new Date().toISOString();
+  const endTime = member.expiry_date
+    ? `${member.expiry_date}T23:59:59`
+    : "2099-12-31T23:59:59";
+
+  return {
+    employeeNo: String(member.id),
+    name: member.full_name,
+    phoneNo: member.phone || "",
+    address: member.address || "",
+    fingerPrintId: member.fingerprint_id || undefined,
+    membershipType: member.membership_type,
+    status: member.status || "active",
+    Valid: {
+      enable: true,
+      beginTime,
+      endTime,
+    },
+  };
+}
+
+async function syncDevice(actionLabel, executor) {
+  if (DEVICE_SYNC_DISABLED) return { synced: false, skipped: true };
+  try {
+    const deviceResponse = await executor();
+    return { synced: true, deviceResponse };
+  } catch (error) {
+    console.warn(`[Device Sync] ${actionLabel} failed:`, error.message);
+    return { synced: false, error: error.message };
+  }
+}
+
+async function syncMemberToDevice(action, member) {
+  if (!member) return { synced: false, reason: "member-not-found" };
+  if (action === "delete") {
+    return syncDevice("delete member", () =>
+      deviceService.deleteUser(member.id),
+    );
+  }
+
+  const payload = buildDeviceUserPayload(member);
+  if (!payload) return { synced: false, reason: "invalid-payload" };
+
+  if (action === "add") {
+    return syncDevice("add member", () => deviceService.addUser(payload));
+  }
+
+  if (action === "renew") {
+    return syncDevice("renew member", () =>
+      deviceService.renewMembership(payload),
+    );
+  }
+
+  return syncDevice("update member", () => deviceService.editUser(payload));
+}
+
 // ── AUTH ──────────────────────────────────────────────────────────
 function login(email, password) {
   const admin = db.prepare("SELECT * FROM admins WHERE email = ?").get(email);
@@ -185,7 +249,7 @@ function getMemberByFingerprintId(fingerprintId) {
     .get(fingerprintId);
 }
 
-function addMember(m) {
+async function addMember(m) {
   const expiry = calcExpiry(m.start_date, m.membership_type);
   const result = db
     .prepare(
@@ -215,10 +279,24 @@ function addMember(m) {
   `,
   ).run(result.lastInsertRowid, m.membership_fee, m.start_date);
 
-  return { success: true, id: result.lastInsertRowid, expiry_date: expiry };
+  const newMember = {
+    ...m,
+    id: result.lastInsertRowid,
+    expiry_date: expiry,
+    status: "active",
+  };
+
+  const deviceSync = await syncMemberToDevice("add", newMember);
+
+  return {
+    success: true,
+    id: result.lastInsertRowid,
+    expiry_date: expiry,
+    deviceSync,
+  };
 }
 
-function updateMember(m) {
+async function updateMember(m) {
   db.prepare(
     `
     UPDATE members SET full_name=?, phone=?, address=?, fingerprint_id=?, photo=?
@@ -232,15 +310,25 @@ function updateMember(m) {
     m.photo || null,
     m.id,
   );
-  return { success: true };
+
+  const updatedMember = getMemberById(m.id);
+  const deviceSync = await syncMemberToDevice("update", updatedMember);
+
+  return { success: true, deviceSync };
 }
 
-function deleteMember(id) {
+async function deleteMember(id) {
+  const member = getMemberById(id);
   db.prepare("UPDATE members SET deleted = 1 WHERE id = ?").run(id);
-  return { success: true };
+
+  const deviceSync = member
+    ? await syncMemberToDevice("delete", member)
+    : { synced: false, reason: "member-not-found" };
+
+  return { success: true, deviceSync };
 }
 
-function renewMember({ memberId, membershipType, fee, startDate }) {
+async function renewMember({ memberId, membershipType, fee, startDate }) {
   const expiry = calcExpiry(startDate, membershipType);
   db.prepare(
     `
@@ -262,7 +350,10 @@ function renewMember({ memberId, membershipType, fee, startDate }) {
     `Renewed: ${membershipType.replace("_", " ")}`,
   );
 
-  return { success: true, expiry_date: expiry };
+  const updatedMember = getMemberById(memberId);
+  const deviceSync = await syncMemberToDevice("renew", updatedMember);
+
+  return { success: true, expiry_date: expiry, deviceSync };
 }
 
 function blockMember(id) {
