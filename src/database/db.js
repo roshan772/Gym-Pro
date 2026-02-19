@@ -386,6 +386,16 @@ function processScan(fingerprintId) {
       message: "Fingerprint not registered",
     };
 
+  // Check if member is blocked
+  if (member.blocked === 1)
+    return {
+      success: false,
+      type: "BLOCKED",
+      message: `Access denied - Member account is blocked`,
+      member,
+    };
+
+  // Check if membership is expired
   if (!isAfter(parseISO(member.expiry_date), new Date()))
     return {
       success: false,

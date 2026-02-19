@@ -227,7 +227,9 @@ export default function Attendance() {
         ? "#3b82f6"
         : scanResult.type === "EXPIRED"
           ? "#eab308"
-          : "#ef4444";
+          : scanResult.type === "BLOCKED"
+            ? "#a855f7"
+            : "#ef4444";
 
   const ScanIcon = () => {
     if (!scanResult)
@@ -236,6 +238,8 @@ export default function Attendance() {
     if (scanResult.type === "EXIT") return <LogOut size={52} color="#3b82f6" />;
     if (scanResult.type === "EXPIRED")
       return <AlertCircle size={52} color="#eab308" />;
+    if (scanResult.type === "BLOCKED")
+      return <XCircle size={52} color="#a855f7" />;
     if (scanResult.type === "NOT_FOUND")
       return <XCircle size={52} color="#ef4444" />;
     return <CheckCircle size={52} color="#94a3b8" />;
