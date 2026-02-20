@@ -5,6 +5,12 @@ if (require("electron-squirrel-startup")) app.quit();
 
 let db = null;
 
+// const isDev = true; // change later
+// if (isDev) {
+//   const startMockServer = require("./device/mock-hikvision");
+//   startMockServer(3001);
+// }
+
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 1400,

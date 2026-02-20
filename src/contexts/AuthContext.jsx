@@ -29,8 +29,10 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    setLoading(true); // Set loading to true during logout
     setAdmin(null);
     sessionStorage.removeItem("gymAdmin");
+    setTimeout(() => setLoading(false), 500); // Reset loading after a short delay
   };
 
   // ✅ Helper to check permissions
