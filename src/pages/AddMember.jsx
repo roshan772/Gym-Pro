@@ -8,7 +8,6 @@ import {
   MapPin,
   Calendar,
   DollarSign,
-  Fingerprint,
   Check,
 } from "lucide-react";
 import { format, addMonths, addYears } from "date-fns";
@@ -119,6 +118,14 @@ const styles = {
     color: "#fca5a5",
     fontSize: "0.875rem",
   },
+  warnBox: {
+    background: "rgba(234,179,8,0.08)",
+    border: "1px solid rgba(234,179,8,0.3)",
+    borderRadius: 10,
+    padding: "0.875rem 1rem",
+    color: "#fde68a",
+    fontSize: "0.875rem",
+  },
   tipCard: {
     background: "#131d2e",
     borderRadius: 16,
@@ -165,11 +172,11 @@ export default function AddMember() {
     membership_type: "1_month",
     start_date: format(new Date(), "yyyy-MM-dd"),
     membership_fee: DEF_FEES["1_month"],
-    fingerprint_id: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [deviceWarn, setDeviceWarn] = useState("");
 
   useEffect(() => {
     if (isEdit)
@@ -203,13 +210,22 @@ export default function AddMember() {
       e.preventDefault();
       setLoading(true);
       setError("");
+      setDeviceWarn("");
       try {
         const res = isEdit
           ? await window.gymAPI.updateMember({ ...form, id: Number(id) })
           : await window.gymAPI.addMember(form);
         if (res.success) {
-          setSuccess(true);
-          setTimeout(() => navigate("/members"), 900);
+          // Check if the device sync worked
+          if (!isEdit && res.deviceSync && !res.deviceSync.synced && !res.deviceSync.skipped) {
+            setDeviceWarn(
+              `Member saved, but device sync failed: ${res.deviceSync.error || "unknown error"}. ` +
+              `The member was NOT added to the Hikvision terminal.`
+            );
+          } else {
+            setSuccess(true);
+            setTimeout(() => navigate("/members"), 900);
+          }
         } else setError(res.message || "Failed to save");
       } catch (err) {
         setError(err.message);
@@ -295,21 +311,6 @@ export default function AddMember() {
                 </div>
               </div>
 
-              <div>
-                <label className="label">Fingerprint ID</label>
-                <div style={styles.iconWrap}>
-                  <Fingerprint size={14} style={styles.icon} />
-                  <input
-                    name="fingerprint_id"
-                    value={form.fingerprint_id || ""}
-                    onChange={handleChange}
-                    className="input"
-                    style={styles.inputPadL}
-                    placeholder="e.g. FP-001 or ZKTeco User ID"
-                    autoComplete="off"
-                  />
-                </div>
-              </div>
             </div>
           </div>
 
@@ -422,6 +423,27 @@ export default function AddMember() {
 
           {error && <div style={styles.errorBox}>{error}</div>}
 
+          {deviceWarn && (
+            <div style={styles.warnBox}>
+              <div style={{ fontWeight: 700, marginBottom: "0.4rem" }}>
+                ⚠️ Device Sync Failed
+              </div>
+              <div style={{ marginBottom: "0.75rem", lineHeight: 1.5 }}>
+                {deviceWarn}
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ fontSize: "0.8rem", padding: "0.35rem 0.75rem" }}
+                  onClick={() => navigate("/members")}
+                >
+                  Continue anyway
+                </button>
+              </div>
+            </div>
+          )}
+
           <div style={styles.btnRow}>
             <button
               type="submit"
@@ -473,21 +495,7 @@ export default function AddMember() {
               </div>
             ))}
           </div>
-          <div style={styles.tipCard}>
-            <div style={styles.tipLabel}>
-              <Fingerprint
-                size={11}
-                style={{ display: "inline", marginRight: 4 }}
-              />
-              Fingerprint ID
-            </div>
-            <p
-              style={{ fontSize: "0.8rem", color: "#4a5a78", lineHeight: 1.6 }}
-            >
-              Enter the User ID from your fingerprint device (ZKTeco,
-              DigitalPersona, etc.)
-            </p>
-          </div>
+
         </div>
       </div>
     </div>

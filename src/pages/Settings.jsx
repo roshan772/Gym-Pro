@@ -364,48 +364,7 @@ export default function Settings() {
             ))}
           </div>
 
-          <div
-            className="card animate-fade-up stagger-3"
-            style={{
-              padding: "1.25rem",
-              background: "rgba(249,115,22,0.06)",
-              borderColor: "rgba(249,115,22,0.15)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.65rem",
-                fontWeight: 700,
-                color: "#f97316",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                marginBottom: "0.5rem",
-              }}
-            >
-              💡 Fingerprint Hardware
-            </div>
-            <p
-              style={{
-                fontSize: "0.78rem",
-                color: "var(--text-secondary)",
-                lineHeight: 1.6,
-              }}
-            >
-              Connect ZKTeco or any SDK-based device. Call{" "}
-              <code
-                style={{
-                  color: "#a855f7",
-                  background: "rgba(168,85,247,0.1)",
-                  padding: "0.1rem 0.3rem",
-                  borderRadius: 4,
-                  fontSize: "0.75rem",
-                }}
-              >
-                window.gymAPI.scanFingerprint(userId)
-              </code>{" "}
-              from your device callback.
-            </p>
-          </div>
+
         </div>
       </div>
     </div>

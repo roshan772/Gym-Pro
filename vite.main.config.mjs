@@ -9,8 +9,13 @@ export default defineConfig({
         "better-sqlite3",
         "bcryptjs",
         "date-fns",
-        // Externalize our db module completely
+        "axios",
+        "dotenv",
+        // Externalize our db and device modules completely
         /.*database\/db.*/,
+        /.*device\/deviceConfig.*/,
+        /.*device\/hikvisionService.*/,
+        /.*device\/deviceService.*/,
       ],
       output: {
         format: "cjs",

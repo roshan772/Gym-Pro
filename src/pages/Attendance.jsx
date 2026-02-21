@@ -1,13 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { format } from "date-fns";
 import {
-  Fingerprint,
   LogIn,
   LogOut,
   Timer,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
   Clock,
   Users,
 } from "lucide-react";
@@ -158,9 +154,6 @@ const styles = {
 
 export default function Attendance() {
   const [todayLog, setTodayLog] = useState([]);
-  const [scanId, setScanId] = useState("");
-  const [scanning, setScanning] = useState(false);
-  const [scanResult, setScanResult] = useState(null);
   const [filterDate, setFilterDate] = useState(
     format(new Date(), "yyyy-MM-dd"),
   );
@@ -185,65 +178,9 @@ export default function Attendance() {
   const complete = todayLog.filter((a) => a.exit_time).length;
 
   // ─── Handlers — all stable with useCallback ───────────────────────
-  const handleScanChange = useCallback((e) => {
-    setScanId(e.target.value);
-  }, []);
-
   const handleDateChange = useCallback((e) => {
     setFilterDate(e.target.value);
   }, []);
-
-  const handleScan = useCallback(async () => {
-    if (!scanId.trim()) return;
-    setScanning(true);
-    setScanResult(null);
-
-    const result = await window.gymAPI.scanFingerprint(scanId.trim());
-    setScanResult(result);
-    setScanning(false);
-    setScanId("");
-
-    if (result.success) {
-      loadToday();
-      window.gymAPI.getAttendanceByDate(filterDate).then(setFiltered);
-    }
-
-    setTimeout(() => setScanResult(null), 7000);
-  }, [scanId, filterDate, loadToday]);
-
-  const handleKeyDown = useCallback(
-    (e) => {
-      if (e.key === "Enter") handleScan();
-    },
-    [handleScan],
-  );
-
-  // ─── Scan result colors ───────────────────────────────────────────
-  const scanColor = !scanResult
-    ? "#f97316"
-    : scanResult.type === "ENTRY"
-      ? "#22c55e"
-      : scanResult.type === "EXIT"
-        ? "#3b82f6"
-        : scanResult.type === "EXPIRED"
-          ? "#eab308"
-          : scanResult.type === "BLOCKED"
-            ? "#a855f7"
-            : "#ef4444";
-
-  const ScanIcon = () => {
-    if (!scanResult)
-      return <Fingerprint size={52} color="rgba(249,115,22,0.4)" />;
-    if (scanResult.type === "ENTRY") return <LogIn size={52} color="#22c55e" />;
-    if (scanResult.type === "EXIT") return <LogOut size={52} color="#3b82f6" />;
-    if (scanResult.type === "EXPIRED")
-      return <AlertCircle size={52} color="#eab308" />;
-    if (scanResult.type === "BLOCKED")
-      return <XCircle size={52} color="#a855f7" />;
-    if (scanResult.type === "NOT_FOUND")
-      return <XCircle size={52} color="#ef4444" />;
-    return <CheckCircle size={52} color="#94a3b8" />;
-  };
 
   // ─── Render ───────────────────────────────────────────────────────
   return (
@@ -252,129 +189,50 @@ export default function Attendance() {
       <div className="animate-fade-up" style={styles.header}>
         <h1 className="section-header">Attendance</h1>
         <p className="section-sub">
-          Fingerprint scan log — {format(new Date(), "EEEE, MMMM d")}
+          Access log — {format(new Date(), "EEEE, MMMM d")}
         </p>
       </div>
 
       <div style={styles.grid}>
         {/* ── Left Column ─────────────────────────────────────── */}
         <div style={styles.leftCol}>
-          {/* Scanner card */}
+          {/* Device info card */}
           <div className="card animate-fade-up stagger-1" style={styles.card}>
             <div style={styles.sectionLbl}>
-              <Fingerprint size={12} style={{ color: "#f97316" }} />
-              Scanner
+              <Clock size={12} style={{ color: "#f97316" }} />
+              Access Control
             </div>
-
-            {/* Fingerprint circle */}
-            <div
-              style={{
-                width: 140,
-                height: 140,
-                borderRadius: "50%",
-                margin: "0 auto 1.25rem",
-                background: `radial-gradient(circle, ${scanColor}15 0%, transparent 70%)`,
-                border: `2px solid ${scanColor}40`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 0.3s",
-                boxShadow: scanResult ? `0 0 30px ${scanColor}30` : "none",
-                animation: scanning
-                  ? "pulseRing 1s ease-in-out infinite"
-                  : "none",
-              }}
-            >
-              <ScanIcon />
-            </div>
-
-            {/* Result box */}
-            {scanResult ? (
+            <div style={{ textAlign: "center", padding: "1.5rem 0" }}>
               <div
                 style={{
-                  padding: "0.875rem",
-                  borderRadius: 10,
-                  marginBottom: "1rem",
-                  textAlign: "center",
-                  background: `${scanColor}12`,
-                  border: `1px solid ${scanColor}30`,
-                  transition: "all 0.3s",
+                  width: 100,
+                  height: 100,
+                  borderRadius: "50%",
+                  margin: "0 auto 1.25rem",
+                  background: "rgba(249,115,22,0.08)",
+                  border: "2px solid rgba(249,115,22,0.2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                {scanResult.type && (
-                  <div
-                    style={{
-                      fontSize: "0.7rem",
-                      fontWeight: 800,
-                      color: scanColor,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      marginBottom: "0.3rem",
-                    }}
-                  >
-                    {scanResult.type}
-                  </div>
-                )}
-                <div
-                  style={{
-                    fontSize: "0.9rem",
-                    fontWeight: 700,
-                    color: "#f0f4ff",
-                  }}
-                >
-                  {scanResult.member?.full_name || "Unknown"}
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.78rem",
-                    color: "#8b9cbf",
-                    marginTop: "0.25rem",
-                  }}
-                >
-                  {scanResult.message}
-                </div>
+                <Clock size={40} color="rgba(249,115,22,0.5)" />
               </div>
-            ) : (
               <div
                 style={{
-                  textAlign: "center",
-                  marginBottom: "1rem",
-                  color: "#4a5a78",
-                  fontSize: "0.82rem",
+                  fontSize: "0.88rem",
+                  fontWeight: 700,
+                  color: "#f0f4ff",
+                  marginBottom: "0.5rem",
                 }}
               >
-                {scanning
-                  ? "Processing scan..."
-                  : "Ready — enter fingerprint ID below"}
+                Managed by Device
               </div>
-            )}
-
-            {/* ✅ Input with stable onChange handler */}
-            <input
-              value={scanId}
-              onChange={handleScanChange}
-              onKeyDown={handleKeyDown}
-              className="input"
-              style={styles.scanInput}
-              placeholder="Fingerprint ID → Press Enter"
-              disabled={scanning}
-              autoComplete="off"
-            />
-
-            <button
-              onClick={handleScan}
-              disabled={scanning || !scanId.trim()}
-              className="btn-primary"
-              style={{ width: "100%", marginTop: "0.125rem" }}
-            >
-              {scanning ? "Processing..." : "Process Scan"}
-            </button>
-
-            <p style={styles.hint}>
-              Hardware? Call{" "}
-              <code style={styles.hintCode}>scanFingerprint(id)</code> from your
-              SDK callback
-            </p>
+              <p style={{ fontSize: "0.75rem", color: "#4a5a78", lineHeight: 1.6 }}>
+                Attendance is logged automatically when members scan their
+                fingerprint at the Hikvision terminal.
+              </p>
+            </div>
           </div>
 
           {/* Today stats card */}
@@ -454,7 +312,7 @@ export default function Attendance() {
                 {displayList.length === 0 ? (
                   <tr>
                     <td colSpan={5} style={styles.emptyCell}>
-                      <Fingerprint size={36} style={styles.emptyIcon} />
+                      <Clock size={36} style={styles.emptyIcon} />
                       No attendance records for this date
                     </td>
                   </tr>
@@ -468,10 +326,6 @@ export default function Attendance() {
       </div>
 
       <style>{`
-        @keyframes pulseRing {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(249,115,22,0.3); }
-          50%       { box-shadow: 0 0 0 12px rgba(249,115,22,0.05); }
-        }
         @keyframes spin {
           to { transform: rotate(360deg); }
         }

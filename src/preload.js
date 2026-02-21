@@ -15,7 +15,6 @@ contextBridge.exposeInMainWorld("gymAPI", {
   renewMember: (d) => ipcRenderer.invoke("members:renew", d),
 
   // Attendance
-  scanFingerprint: (fid) => ipcRenderer.invoke("attendance:scan", fid),
   getTodayAttendance: () => ipcRenderer.invoke("attendance:getToday"),
   getAttendanceByDate: (date) =>
     ipcRenderer.invoke("attendance:getByDate", date),
@@ -45,4 +44,35 @@ contextBridge.exposeInMainWorld("gymAPI", {
 
   markNotificationSent: (id) =>
     ipcRenderer.invoke("members:markNotificationSent", id),
+
+  // ── Hikvision Device ───────────────────────────────────────────────────────
+  // These methods invoke IPC channels handled in the main process.
+  // Device IP and credentials are NEVER exposed here — only the results are.
+
+  /**
+   * Check device connectivity and retrieve basic hardware info.
+   * @returns {Promise<{success, synced, deviceName?, model?, firmwareVersion?, serialNumber?, error?}>}
+   */
+  getDeviceStatus: () => ipcRenderer.invoke("hikvision:getStatus"),
+
+  /**
+   * Remotely open the door / turnstile from the UI.
+   * @param {number} [doorNo]  Optional door number (defaults to env HIKVISION_DOOR_NO)
+   * @returns {Promise<{success, synced, error?}>}
+   */
+  openDoor: (doorNo) => ipcRenderer.invoke("hikvision:openDoor", doorNo),
+
+  /**
+   * Manually sync a specific member to the device.
+   * Useful after the device was offline when the member was registered.
+   *
+   * @param {{
+   *   employeeNo: string,
+   *   name: string,
+   *   Valid: { enable: boolean, beginTime: string, endTime: string }
+   * }} memberPayload
+   * @returns {Promise<{success, synced, error?}>}
+   */
+  syncMemberToDevice: (memberPayload) =>
+    ipcRenderer.invoke("hikvision:syncMember", memberPayload),
 });

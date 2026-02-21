@@ -6,7 +6,7 @@ import {
   RefreshCw,
   Phone,
   MapPin,
-  Fingerprint,
+  Clock,
   Calendar,
   LogIn,
   LogOut,
@@ -291,11 +291,6 @@ export default function MemberDetail() {
               <InfoRow icon={Phone} value={member.phone} />
               <InfoRow icon={MapPin} value={member.address} />
               <InfoRow
-                icon={Fingerprint}
-                value={member.fingerprint_id}
-                color="#a855f7"
-              />
-              <InfoRow
                 icon={Calendar}
                 value={TYPE_LABELS[member.membership_type]}
               />
@@ -380,7 +375,7 @@ export default function MemberDetail() {
               <div
                 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
               >
-                <Fingerprint size={15} style={{ color: "#a855f7" }} />
+                <Clock size={15} style={{ color: "#a855f7" }} />
                 <span
                   style={{
                     fontWeight: 700,

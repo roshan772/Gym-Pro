@@ -10,7 +10,6 @@ import {
   Users,
   UserCheck,
   UserX,
-  Fingerprint,
 } from "lucide-react";
 import { isAfter, parseISO } from "date-fns";
 
@@ -195,7 +194,6 @@ export default function Members() {
                 "Type",
                 "Status",
                 "Expiry",
-                "Fingerprint",
                 "",
               ].map((h) => (
                 <th key={h} className="table-header">
@@ -365,31 +363,6 @@ export default function Members() {
                       }}
                     >
                       {m.expiry_date}
-                    </td>
-                    <td className="table-cell" style={{ borderBottom: "none" }}>
-                      {m.fingerprint_id ? (
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.35rem",
-                            color: "#a855f7",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                          }}
-                        >
-                          <Fingerprint size={12} /> {m.fingerprint_id}
-                        </div>
-                      ) : (
-                        <span
-                          style={{
-                            color: "var(--text-muted)",
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          —
-                        </span>
-                      )}
                     </td>
                     <td className="table-cell" style={{ borderBottom: "none" }}>
                       <div

@@ -146,7 +146,6 @@ function buildDeviceUserPayload(member) {
     name: member.full_name,
     phoneNo: member.phone || "",
     address: member.address || "",
-    fingerPrintId: member.fingerprint_id || undefined,
     membershipType: member.membership_type,
     status: member.status || "active",
     Valid: {
@@ -243,12 +242,6 @@ function getMemberById(id) {
     .get(id);
 }
 
-function getMemberByFingerprintId(fingerprintId) {
-  return db
-    .prepare("SELECT * FROM members WHERE fingerprint_id = ? AND deleted = 0")
-    .get(fingerprintId);
-}
-
 async function addMember(m) {
   const expiry = calcExpiry(m.start_date, m.membership_type);
   const result = db
@@ -256,8 +249,8 @@ async function addMember(m) {
       `
     INSERT INTO members
       (full_name, phone, address, membership_type, start_date, expiry_date,
-       membership_fee, fingerprint_id, photo, status)
-    VALUES (?,?,?,?,?,?,?,?,?,'active')
+       membership_fee, photo, status)
+    VALUES (?,?,?,?,?,?,?,?,'active')
   `,
     )
     .run(
@@ -268,7 +261,6 @@ async function addMember(m) {
       m.start_date,
       expiry,
       m.membership_fee,
-      m.fingerprint_id || null,
       m.photo || null,
     );
 
@@ -288,6 +280,17 @@ async function addMember(m) {
 
   const deviceSync = await syncMemberToDevice("add", newMember);
 
+  if (!deviceSync.synced && !deviceSync.skipped) {
+    console.error(
+      `[DB] addMember: device sync FAILED for member id=${newMember.id} name="${newMember.full_name}". ` +
+        `Reason: ${deviceSync.error || deviceSync.reason || "unknown"}`
+    );
+  } else if (deviceSync.synced) {
+    console.log(
+      `[DB] addMember: device sync OK for member id=${newMember.id} name="${newMember.full_name}"`
+    );
+  }
+
   return {
     success: true,
     id: result.lastInsertRowid,
@@ -299,14 +302,13 @@ async function addMember(m) {
 async function updateMember(m) {
   db.prepare(
     `
-    UPDATE members SET full_name=?, phone=?, address=?, fingerprint_id=?, photo=?
+    UPDATE members SET full_name=?, phone=?, address=?, photo=?
     WHERE id=?
   `,
   ).run(
     m.full_name,
     m.phone || "",
     m.address || "",
-    m.fingerprint_id || null,
     m.photo || null,
     m.id,
   );
@@ -374,80 +376,7 @@ function markNotificationSent(memberId) {
 }
 
 // ── ATTENDANCE ────────────────────────────────────────────────────
-function processScan(fingerprintId) {
-  const member = db
-    .prepare("SELECT * FROM members WHERE fingerprint_id = ? AND deleted = 0")
-    .get(fingerprintId);
-
-  if (!member)
-    return {
-      success: false,
-      type: "NOT_FOUND",
-      message: "Fingerprint not registered",
-    };
-
-  // Check if member is blocked
-  if (member.blocked === 1)
-    return {
-      success: false,
-      type: "BLOCKED",
-      message: `Access denied - Member account is blocked`,
-      member,
-    };
-
-  // Check if membership is expired
-  if (!isAfter(parseISO(member.expiry_date), new Date()))
-    return {
-      success: false,
-      type: "EXPIRED",
-      message: `Membership expired on ${member.expiry_date}`,
-      member,
-    };
-
-  const today = todayStr();
-  const now = nowTime();
-  const row = db
-    .prepare("SELECT * FROM attendance WHERE member_id = ? AND date = ?")
-    .get(member.id, today);
-
-  if (!row) {
-    db.prepare(
-      "INSERT INTO attendance (member_id, date, entry_time) VALUES (?,?,?)",
-    ).run(member.id, today, now);
-    return {
-      success: true,
-      type: "ENTRY",
-      message: `Welcome, ${member.full_name}!`,
-      member,
-      time: now,
-    };
-  }
-
-  if (row.entry_time && !row.exit_time) {
-    const duration = Math.max(
-      0,
-      timeToMinutes(now) - timeToMinutes(row.entry_time),
-    );
-    db.prepare(
-      "UPDATE attendance SET exit_time=?, duration_minutes=? WHERE id=?",
-    ).run(now, duration, row.id);
-    return {
-      success: true,
-      type: "EXIT",
-      message: `Goodbye, ${member.full_name}! Workout: ${duration} min`,
-      member,
-      time: now,
-      duration,
-    };
-  }
-
-  return {
-    success: true,
-    type: "DONE",
-    message: `${member.full_name} already checked in & out today`,
-    member,
-  };
-}
+// processScan removed — attendance is logged by the Hikvision device
 
 function getTodayAttendance() {
   return db
@@ -649,7 +578,6 @@ module.exports = {
   getAllMembers,
   searchMembers,
   getMemberById,
-  getMemberByFingerprintId,
   addMember,
   updateMember,
   deleteMember,
@@ -657,7 +585,6 @@ module.exports = {
   blockMember,
   unblockMember,
   markNotificationSent,
-  processScan,
   getTodayAttendance,
   getAttendanceByDate,
   getMemberAttendance,
